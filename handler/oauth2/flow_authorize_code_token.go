@@ -23,6 +23,7 @@ package oauth2
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/ory/x/errorsx"
@@ -131,13 +132,20 @@ func canIssueRefreshToken(c *AuthorizeExplicitGrantHandler, request fosite.Reque
 }
 
 func (c *AuthorizeExplicitGrantHandler) PopulateTokenEndpointResponse(ctx context.Context, requester fosite.AccessRequester, responder fosite.AccessResponder) error {
+	fmt.Println("PopulateTokenEndpointResponse function call")
 	if !c.CanHandleTokenEndpointRequest(requester) {
 		return errorsx.WithStack(fosite.ErrUnknownRequest)
 	}
 
 	code := requester.GetRequestForm().Get("code")
 	signature := c.AuthorizeCodeStrategy.AuthorizeCodeSignature(code)
+
 	authorizeRequest, err := c.CoreStorage.GetAuthorizeCodeSession(ctx, signature, requester.GetSession())
+	sprintf := fmt.Sprintf("accessResponse from token handler is %#v", authorizeRequest)
+	fmt.Println(sprintf)
+	requesterSprintf := fmt.Sprintf("requesterSprintf from token handler is %#v", requester)
+	fmt.Println(requesterSprintf)
+
 	if err != nil {
 		return errorsx.WithStack(fosite.ErrServerError.WithWrap(err).WithDebug(err.Error()))
 	} else if err := c.AuthorizeCodeStrategy.ValidateAuthorizeCode(ctx, requester, code); err != nil {
@@ -154,6 +162,8 @@ func (c *AuthorizeExplicitGrantHandler) PopulateTokenEndpointResponse(ctx contex
 	}
 
 	access, accessSignature, err := c.AccessTokenStrategy.GenerateAccessToken(ctx, requester)
+	accessSprintf := fmt.Sprintf("access from token handler is %#v", access)
+	fmt.Println(accessSprintf)
 	if err != nil {
 		return errorsx.WithStack(fosite.ErrServerError.WithWrap(err).WithDebug(err.Error()))
 	}
@@ -190,6 +200,8 @@ func (c *AuthorizeExplicitGrantHandler) PopulateTokenEndpointResponse(ctx contex
 		}
 	}
 
+	fmt.Println("c.AccessTokenLifespan " + c.AccessTokenLifespan.String())
+	fmt.Println(time.Now().UTC())
 	responder.SetAccessToken(access)
 	responder.SetTokenType("bearer")
 	responder.SetExpiresIn(getExpiresIn(requester, fosite.AccessToken, c.AccessTokenLifespan, time.Now().UTC()))
